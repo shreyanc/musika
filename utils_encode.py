@@ -6,7 +6,7 @@ from pydub import AudioSegment
 from glob import glob
 from tqdm import tqdm
 
-from utils import Utils_functions
+from musika.utils import Utils_functions
 
 
 class UtilsEncode_functions:

@@ -6,7 +6,7 @@ import tensorflow as tf
 from tensorflow.python.keras.utils.layer_utils import count_params
 from huggingface_hub import hf_hub_download
 
-from layers import AddNoise
+from musika.layers import AddNoise
 
 
 class Models_functions:
