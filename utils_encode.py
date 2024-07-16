@@ -43,19 +43,26 @@ class UtilsEncode_functions:
     #     )
 
     def compress_files(self, models_ls=None):
-        critic, gen, enc, dec, enc2, dec2, gen_ema, [opt_dec, opt_disc], switch = models_ls
+        critic, gen, enc, dec, enc2, dec2, gen_ema, [opt_dec, opt_disc], switch = (
+            models_ls
+        )
         # self.create_dataset()
         os.makedirs(self.args.save_path, exist_ok=True)
         c = 0
         time_compression_ratio = 16  # TODO: infer time compression ratio
         shape2 = self.args.shape
-        pbar = tqdm(self.audio_generator(), position=0, leave=True, total=len(self.paths))
+        pbar = tqdm(
+            self.audio_generator(), position=0, leave=True, total=len(self.paths)
+        )
 
-        for (wv,bname) in pbar:
+        for wv, bname in pbar:
 
             try:
 
-                if wv.shape[0] > self.args.hop * self.args.shape * 2 + 3 * self.args.hop:
+                if (
+                    wv.shape[0]
+                    > self.args.hop * self.args.shape * 2 + 3 * self.args.hop
+                ):
 
                     split_limit = (
                         5 * 60 * self.args.sr
@@ -64,15 +71,25 @@ class UtilsEncode_functions:
                     nsplits = (wv.shape[0] // split_limit) + 1
                     wvsplits = []
                     for ns in range(nsplits):
-                        if wv.shape[0] - (ns * split_limit) > self.args.hop * self.args.shape * 2 + 3 * self.args.hop:
-                            wvsplits.append(wv[ns * split_limit : (ns + 1) * split_limit, :])
+                        if (
+                            wv.shape[0] - (ns * split_limit)
+                            > self.args.hop * self.args.shape * 2 + 3 * self.args.hop
+                        ):
+                            wvsplits.append(
+                                wv[ns * split_limit : (ns + 1) * split_limit, :]
+                            )
 
                     for wv in wvsplits:
 
                         wv = tf.image.random_crop(
                             wv,
                             size=[
-                                (((wv.shape[0] - (3 * self.args.hop)) // (self.args.shape * self.args.hop)))
+                                (
+                                    (
+                                        (wv.shape[0] - (3 * self.args.hop))
+                                        // (self.args.shape * self.args.hop)
+                                    )
+                                )
                                 * self.args.shape
                                 * self.args.hop
                                 + 3 * self.args.hop,
@@ -84,13 +101,25 @@ class UtilsEncode_functions:
                         for channel in range(2):
 
                             x = wv[:, channel]
-                            x = tf.expand_dims(tf.transpose(self.U.wv2spec(x, hop_size=self.args.hop), (1, 0)), -1)
+                            x = tf.expand_dims(
+                                tf.transpose(
+                                    self.U.wv2spec(x, hop_size=self.args.hop), (1, 0)
+                                ),
+                                -1,
+                            )
                             ds = []
                             num = x.shape[1] // self.args.shape
                             rn = 0
                             for i in range(num):
                                 ds.append(
-                                    x[:, rn + (i * self.args.shape) : rn + (i * self.args.shape) + self.args.shape, :]
+                                    x[
+                                        :,
+                                        rn
+                                        + (i * self.args.shape) : rn
+                                        + (i * self.args.shape)
+                                        + self.args.shape,
+                                        :,
+                                    ]
                                 )
                             del x
                             ds = tf.convert_to_tensor(ds, dtype=tf.float32)
@@ -101,15 +130,27 @@ class UtilsEncode_functions:
                             lat = tf.squeeze(lat)
 
                             switch = False
-                            if lat.shape[0] > (self.args.max_lat_len * time_compression_ratio):
+                            if lat.shape[0] > (
+                                self.args.max_lat_len * time_compression_ratio
+                            ):
                                 switch = True
                                 ds2 = []
                                 num2 = lat.shape[-2] // shape2
                                 rn2 = 0
                                 for j in range(num2):
-                                    ds2.append(lat[rn2 + (j * shape2) : rn2 + (j * shape2) + shape2, :])
+                                    ds2.append(
+                                        lat[
+                                            rn2
+                                            + (j * shape2) : rn2
+                                            + (j * shape2)
+                                            + shape2,
+                                            :,
+                                        ]
+                                    )
                                 ds2 = tf.convert_to_tensor(ds2, dtype=tf.float32)
-                                lat = self.U.distribute_enc(tf.expand_dims(ds2, -3), enc2)
+                                lat = self.U.distribute_enc(
+                                    tf.expand_dims(ds2, -3), enc2
+                                )
                                 del ds2
                                 lat = tf.split(lat, lat.shape[0], 0)
                                 lat = tf.concat(lat, -2)
@@ -122,13 +163,22 @@ class UtilsEncode_functions:
 
                             del chls
 
-                            latc = lat[: (lat.shape[0] // self.args.max_lat_len) * self.args.max_lat_len, :]
-                            latc = tf.split(latc, latc.shape[0] // self.args.max_lat_len, 0)
+                            latc = lat[
+                                : (lat.shape[0] // self.args.max_lat_len)
+                                * self.args.max_lat_len,
+                                :,
+                            ]
+                            latc = tf.split(
+                                latc, latc.shape[0] // self.args.max_lat_len, 0
+                            )
                             for el in latc:
                                 np.save(self.args.save_path + f"/{bname}_{c}.npy", el)
                                 c += 1
                                 pbar.set_postfix({"Saved Files": c})
-                            np.save(self.args.save_path + f"/{bname}_{c}.npy", lat[-self.args.max_lat_len :, :])
+                            np.save(
+                                self.args.save_path + f"/{bname}_{c}.npy",
+                                lat[-self.args.max_lat_len :, :],
+                            )
                             c += 1
                             pbar.set_postfix({"Saved Files": c})
 
@@ -140,40 +190,60 @@ class UtilsEncode_functions:
                 print("Exception ignored! Continuing...")
                 pass
 
-
     def compress_whole_files(self, models_ls=None):
-        critic, gen, enc, dec, enc2, dec2, gen_ema, [opt_dec, opt_disc], switch = models_ls
+        critic, gen, enc, dec, enc2, dec2, gen_ema, [opt_dec, opt_disc], switch = (
+            models_ls
+        )
         # self.create_dataset()
         os.makedirs(self.args.save_path, exist_ok=True)
         c = 0
         time_compression_ratio = 16  # TODO: infer time compression ratio
         shape2 = self.args.shape
-        pbar = tqdm(self.audio_generator(), position=0, leave=True, total=len(self.paths))
+        pbar = tqdm(
+            self.audio_generator(), position=0, leave=True, total=len(self.paths)
+        )
 
-        for (wv,bname) in pbar:
+        for wv, bname in pbar:
 
             try:
 
                 # wv_len_orig = wv.shape[0]
 
-                if wv.shape[0] > self.args.hop * self.args.shape * 2 + 3 * self.args.hop:
+                if (
+                    wv.shape[0]
+                    > self.args.hop * self.args.shape * 2 + 3 * self.args.hop
+                ):
 
-                    rem = (wv.shape[0] - (3 * self.args.hop)) % (self.args.shape * self.args.hop)
+                    rem = (wv.shape[0] - (3 * self.args.hop)) % (
+                        self.args.shape * self.args.hop
+                    )
 
                     if rem != 0:
-                        wv = tf.concat([wv, tf.zeros([rem,2], dtype=tf.float32)], 0)
+                        wv = tf.concat([wv, tf.zeros([rem, 2], dtype=tf.float32)], 0)
 
                     chls = []
                     for channel in range(2):
 
                         x = wv[:, channel]
-                        x = tf.expand_dims(tf.transpose(self.U.wv2spec(x, hop_size=self.args.hop), (1, 0)), -1)
+                        x = tf.expand_dims(
+                            tf.transpose(
+                                self.U.wv2spec(x, hop_size=self.args.hop), (1, 0)
+                            ),
+                            -1,
+                        )
                         ds = []
                         num = x.shape[1] // self.args.shape
                         rn = 0
                         for i in range(num):
                             ds.append(
-                                x[:, rn + (i * self.args.shape) : rn + (i * self.args.shape) + self.args.shape, :]
+                                x[
+                                    :,
+                                    rn
+                                    + (i * self.args.shape) : rn
+                                    + (i * self.args.shape)
+                                    + self.args.shape,
+                                    :,
+                                ]
                             )
                         del x
                         ds = tf.convert_to_tensor(ds, dtype=tf.float32)
@@ -183,13 +253,13 @@ class UtilsEncode_functions:
                         lat = tf.concat(lat, -2)
                         lat = tf.squeeze(lat)
 
-
-
                         ds2 = []
                         num2 = lat.shape[-2] // shape2
                         rn2 = 0
                         for j in range(num2):
-                            ds2.append(lat[rn2 + (j * shape2) : rn2 + (j * shape2) + shape2, :])
+                            ds2.append(
+                                lat[rn2 + (j * shape2) : rn2 + (j * shape2) + shape2, :]
+                            )
                         ds2 = tf.convert_to_tensor(ds2, dtype=tf.float32)
                         lat = self.U.distribute_enc(tf.expand_dims(ds2, -3), enc2)
                         del ds2
@@ -212,3 +282,100 @@ class UtilsEncode_functions:
                 print(e)
                 print("Exception ignored! Continuing...")
                 pass
+
+
+class MusikaEncoderDecoder:
+    def __init__(self, args, models_ls):
+
+        self.args = args
+        self.U = Utils_functions(args)
+
+        (
+            critic,
+            gen,
+            self.enc,
+            self.dec,
+            self.enc2,
+            self.dec2,
+            gen_ema,
+            [opt_dec, opt_disc],
+            self.switch,
+        ) = models_ls
+
+    def encode_audio(self, audio_wf):
+        c = 0
+        time_compression_ratio = 16  # TODO: infer time compression ratio
+        shape2 = self.args.shape
+
+        wv = audio_wf.T  # shape = [samples, channels]
+
+        if (
+            wv.shape[0]
+            > self.args.hop * self.args.shape * 2 + 3 * self.args.hop
+        ):
+
+            rem = (wv.shape[0] - (3 * self.args.hop)) % (
+                self.args.shape * self.args.hop
+            )
+
+            if rem != 0:
+                wv = tf.concat([wv, tf.zeros([rem, 2], dtype=tf.float32)], 0)
+
+            chls = []
+            for channel in range(2):
+
+                x = wv[:, channel]
+                x = tf.expand_dims(
+                    tf.transpose(
+                        self.U.wv2spec(x, hop_size=self.args.hop), (1, 0)
+                    ),
+                    -1,
+                )
+                ds = []
+                num = x.shape[1] // self.args.shape
+                rn = 0
+                for i in range(num):
+                    ds.append(
+                        x[
+                            :,
+                            rn
+                            + (i * self.args.shape) : rn
+                            + (i * self.args.shape)
+                            + self.args.shape,
+                            :,
+                        ]
+                    )
+                del x
+                ds = tf.convert_to_tensor(ds, dtype=tf.float32)
+                lat = self.U.distribute_enc(ds, self.enc)
+                del ds
+                lat = tf.split(lat, lat.shape[0], 0)
+                lat = tf.concat(lat, -2)
+                lat = tf.squeeze(lat)
+
+                ds2 = []
+                num2 = lat.shape[-2] // shape2
+                rn2 = 0
+                for j in range(num2):
+                    ds2.append(
+                        lat[rn2 + (j * shape2) : rn2 + (j * shape2) + shape2, :]
+                    )
+                ds2 = tf.convert_to_tensor(ds2, dtype=tf.float32)
+                lat = self.U.distribute_enc(tf.expand_dims(ds2, -3), self.enc2)
+                del ds2
+                lat = tf.split(lat, lat.shape[0], 0)
+                lat = tf.concat(lat, -2)
+                lat = tf.squeeze(lat)
+                chls.append(lat)
+
+            lat = tf.concat(chls, -1)
+
+            del chls
+            
+            return lat
+
+    def decode_audio(self, lat):
+        lat = tf.expand_dims(lat, 0)
+        lat = tf.expand_dims(lat, 0)
+        wv = self.U.decode_waveform(lat, self.dec, self.dec2)
+        return wv.T
