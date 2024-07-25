@@ -375,6 +375,8 @@ class MusikaEncoderDecoder:
             return lat
 
     def decode_audio(self, lat):
+        # lat = lat.cpu().numpy()
+        lat = tf.convert_to_tensor(lat.cpu())
         lat = tf.expand_dims(lat, 0)
         lat = tf.expand_dims(lat, 0)
         wv = self.U.decode_waveform(lat, self.dec, self.dec2)
